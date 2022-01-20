@@ -55,6 +55,15 @@ assembly / assemblyMergeStrategy := {
   case _ => MergeStrategy.first
 }
 
+
+assembly / assemblyShadeRules := {
+  val shadePackage = "org.globalforestwatch.shaded"
+  Seq(
+    ShadeRule.rename("shapeless.**" -> s"$shadePackage.shapeless.@1").inAll,
+    ShadeRule.rename("cats.kernel.**" -> s"$shadePackage.cats.kernel.@1").inAll
+  )
+}
+
 // Settings from sbt-lighter plugin that will automate creating and submitting this job to EMR
 import sbtlighter._
 

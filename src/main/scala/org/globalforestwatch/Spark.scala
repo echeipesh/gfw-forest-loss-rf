@@ -2,6 +2,7 @@ package org.globalforestwatch
 
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SparkSession
+import org.locationtech.rasterframes._
 
 import scala.util.Properties
 
@@ -13,6 +14,6 @@ object Spark {
     .set("spark.kryo.registrator", "geotrellis.spark.store.kryo.KryoRegistrator")
     .set("spark.executionEnv.AWS_PROFILE", Properties.envOrElse("AWS_PROFILE", "default"))
 
-  implicit val session: SparkSession = SparkSession.builder.config(conf).enableHiveSupport.getOrCreate
+  implicit val session: SparkSession = SparkSession.builder.config(conf).enableHiveSupport.getOrCreate.withRasterFrames
   implicit def context: SparkContext = session.sparkContext
 }
