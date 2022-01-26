@@ -6,11 +6,14 @@ scalaVersion := "2.12.12"
 
 libraryDependencies ++= Seq(
   "com.monovore" %% "decline" % "1.2.0",
-  "org.locationtech.rasterframes" %% "rasterframes" % "0.10.0",
-  "org.locationtech.rasterframes" %% "rasterframes-datasource" % "0.10.0",
-  "org.apache.spark" %% "spark-core" % "3.1.2" % Provided,
-  "org.apache.spark" %% "spark-sql" % "3.1.2" % Provided,
-  "org.apache.spark" %% "spark-hive" % "3.1.2" % Provided
+  "org.locationtech.rasterframes" %% "rasterframes" % "0.10.1-SNAPSHOT",
+  "org.locationtech.rasterframes" %% "rasterframes-datasource" % "0.10.1-SNAPSHOT",
+  "org.apache.spark" %% "spark-core" % "3.1.2" % Compile,
+  "org.apache.spark" %% "spark-sql" % "3.1.2" % Compile,
+  "org.apache.spark" %% "spark-hive" % "3.1.2" % Compile,
+  "org.scalatest" %% "scalatest" % "3.0.8" % Test,
+  "org.scalactic" %% "scalactic" % "3.0.8" % Test,
+  "org.locationtech.geotrellis" %% "geotrellis-raster-testkit" % "3.7.0-SNAPSHOT" % Test
 )
 resolvers ++= Seq(
   "LT-releases" at "https://repo.locationtech.org/content/groups/releases",

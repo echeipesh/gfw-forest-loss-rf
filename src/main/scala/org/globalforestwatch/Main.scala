@@ -94,9 +94,6 @@ object  Main {
 
     // Group by polygonal id
     // Merge summaries
-
-
-
   }
 
   case class Summarized(id: String, histograms: Seq[StreamingHistogram])
