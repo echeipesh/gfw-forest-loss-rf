@@ -8,6 +8,7 @@ libraryDependencies ++= Seq(
   "com.monovore" %% "decline" % "1.2.0",
   "org.locationtech.rasterframes" %% "rasterframes" % "0.10.1-SNAPSHOT",
   "org.locationtech.rasterframes" %% "rasterframes-datasource" % "0.10.1-SNAPSHOT",
+  "org.scalanlp" %% "breeze" % "0.13.2",
   "org.apache.spark" %% "spark-core" % "3.1.2" % Compile,
   "org.apache.spark" %% "spark-sql" % "3.1.2" % Compile,
   "org.apache.spark" %% "spark-hive" % "3.1.2" % Compile,
@@ -21,6 +22,21 @@ resolvers ++= Seq(
   "OSGeo" at "https://repo.osgeo.org/repository/release/",
   "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/",
   "jitpack" at "https://jitpack.io"
+)
+
+scalacOptions ++= Seq(
+  "-deprecation",
+  "-unchecked",
+  "-feature",
+  "-language:implicitConversions",
+  "-language:reflectiveCalls",
+  "-language:higherKinds",
+  "-language:postfixOps",
+  "-language:existentials",
+  "-language:experimental.macros",
+  "-Ypartial-unification", // Required by Cats
+  "-Ywarn-unused-import",
+  "-Yrangepos"
 )
 
 console / initialCommands :=

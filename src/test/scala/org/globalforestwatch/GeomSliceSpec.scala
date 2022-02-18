@@ -1,16 +1,12 @@
 package org.globalforestwatch
 
-import org.locationtech.rasterframes._
-import org.locationtech.rasterframes.datasource.raster._
 import org.locationtech.rasterframes.datasource.geojson._
 import geotrellis.layer._
 import geotrellis.vector._
 import geotrellis.raster.TileLayout
-import org.apache.hadoop.hive.ql.parse.HiveParser.blocking_return
 import geotrellis.raster.ByteCellType
 import geotrellis.proj4.LatLng
 import org.apache.spark.sql.functions.{col, udf, explode}
-import java.net.URI
 
 class GeomSliceSpec extends TestEnvironment {
   import spark.implicits._
@@ -21,7 +17,7 @@ class GeomSliceSpec extends TestEnvironment {
   }
 
   it("turns clips geometry to grid") {
-    val gom = udf{  geom: Geometry => GeomSlicer.sliceGeomByGrid(geom, GridData.blockTileGrid) }
+    val gom = udf{  geom: Geometry => Locations.geomByGrid(geom, GridData.blockTileGrid) }
     val out = locations.
       withColumn("cell", explode(gom(col("geometry")))).
       select(col("list_id"), col("location_id"), col("cell._1") as "spatial_key", col("cell._2") as "geometry")
@@ -29,9 +25,7 @@ class GeomSliceSpec extends TestEnvironment {
     out.printSchema()
     out.show()
     info(s"count: ${out.count}")
-
   }
-
 }
 
 object GridData {

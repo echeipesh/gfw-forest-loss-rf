@@ -1,56 +1,95 @@
 package org.globalforestwatch
 
 import org.locationtech.rasterframes._
-import org.locationtech.rasterframes.functions._
 import org.locationtech.rasterframes.datasource.raster._
 import org.locationtech.rasterframes.datasource.geojson._
-import geotrellis.layer._
-import geotrellis.vector._
-import geotrellis.raster.TileLayout
-import org.apache.hadoop.hive.ql.parse.HiveParser.blocking_return
-import geotrellis.raster.ByteCellType
-import geotrellis.proj4.LatLng
-import org.apache.spark.sql.functions.{col, udf, not => sql_not, when, sum}
+import org.apache.spark.sql.functions.{col, udf, when}
+import org.apache.spark.sql.{ functions => fn }
 import java.net.URI
 import org.apache.spark.sql.types.IntegerType
+import org.apache.spark.sql.DataFrame
+
 
 class FirstSpec extends TestEnvironment {
   import spark.implicits._
 
-  val rasters = TreeCoverLoss.dataframe(spark)
+  lazy val rasters: DataFrame = ???/// TreeCoverLoss.dataframe(spark)
 
-  val pixels = {
+  it("uses tile max") {
+    rasters.
+      withColumn("tcd_max", rf_tile_max(rasters("tcd_tile"))).
+      withColumn("tcl_max", rf_tile_max(rasters("tcl_tile"))).
+      show(Int.MaxValue)
+  }
+
+  lazy val pixels = {
     rasters.select(
       rf_explode_tiles(
-        col("tcd.tile") as "tcd",
-        col("tcl.tile") as "tcl"))
+        rasters("tcd_tile") as "tcd",
+        rasters("tcl_tile") as "tcl"))
       .withColumn("tcd", col("tcd").cast(IntegerType))
       .withColumn("tcl", when(col("tcl").isNaN, null).otherwise(col("tcl") + 2000).cast(IntegerType))
       .where(col("tcl").isNotNull)
   }
 
-  ignore("uses tile max") {
-    rasters.
-      withColumn("tcd_max", rf_tile_max(col("tcd.tile"))).
-      withColumn("tcl_max", rf_tile_max(col("tcl.tile"))).
-      show(Int.MaxValue)
+  it("makes pixels"){
+    pixels.printSchema()
+    pixels.show()
   }
 
-  ignore("aggregates by year") {
-    pixels.
-      where(col("tcd") > 30).
-      groupBy(col("tcl")).
-      agg(sum(col("tcd")))
+  it("aggregates by year") {
+    val pixels = List(
+      (1, 2020, 91, 12),
+      (1, 2020, 98, 1),
+      (1, 2012, 10, 11)
+    ).toDF("id", "loss_year", "tcd", "area")
+
+    val step1 =
+    pixels
+    .withColumn("tcl_90", when(pixels("tcd") > 90, fn.map(pixels("loss_year"), pixels("area"))).otherwise(null))
+    .withColumn("tcl_30", when(pixels("tcd") < 30, fn.map(pixels("loss_year"), pixels("area"))).otherwise(null))
+
+    step1.show()
+
+    step1
+      .groupBy(pixels("id"))
+      .agg(fn.map_concat(col("tcl_90")))
       .show()
-
   }
+
+  it("aggregates by year by bool") {
+    val pixels = List(
+      (1, 2020, 91, 12),
+      (1, 2020, 98, 1),
+      (1, 2012, 10, 11)
+    ).toDF("id", "loss_year", "tcd", "area")
+
+    val step1 =
+    pixels
+    .withColumn("tcl_90_area", when(pixels("tcd") > 90, 'area).otherwise(null))
+    .withColumn("tcl_30_area", when(pixels("tcd") < 30, 'area).otherwise(null))
+
+    step1.show()
+
+    val myagg = fn.udaf(LossYearAgg)
+
+    step1
+    .groupBy('id)
+    .agg(
+      myagg(col("loss_year"), col("tcl_90_area") as "area") as "tcl_90_yearly",
+      myagg(col("loss_year"), col("tcl_30_area") as "area") as "tcl_30_yearly",
+      myagg(col("loss_year"), col("landcover"), col("tcl_30_area") as "area") as "tcl_30_yearly"
+    )
+    .show(false)
+  }
+
   val locations = {
     val geom_uri = "/opt/data/gfwpro/verified/indonesia.geojson"
     spark.read.geojson.load(geom_uri.toString)
   }
 
   ignore("asdf"){
-    val uris = Main.expand(new URI("s3://gfw-data-lake/umd_tree_cover_loss/v1.8/raster/epsg-4326/10/40000/year/gdal-geotiff/"))
+    val uris = OldMain.expand(new URI("s3://gfw-data-lake/umd_tree_cover_loss/v1.8/raster/epsg-4326/10/40000/year/gdal-geotiff/"))
     val df = spark.read.raster
       .from(uris)
       .withTileDimensions(400, 400)
@@ -71,17 +110,5 @@ class FirstSpec extends TestEnvironment {
     val joined = locations.join(rasters, st_intersects(st_geometry(col("tcl.extent")), col("geometry")))
     joined.printSchema()
     joined.show()
-  }
-
-  ignore("key rasters") {
-    // import org.apache.spark.sql.functions.{col, udf}
-    // val showExtent = udf{ (e: Extent) => Data.blockTileGrid.mapTransform.pointToKey(e.center) }
-    // val keyed = rasters.withColumn("spatial_key", showExtent(col("tcl.extent")))
-    // info("Is Layer:" + keyed.isAlreadyLayer)
-    // keyed.show(truncate = false)
-  }
-
-  ignore("reads geom") {
-    locations.show()
   }
 }

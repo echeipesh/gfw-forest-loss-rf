@@ -9,8 +9,10 @@ import geotrellis.raster._
 import org.apache.hadoop.hive.ql.parse.HiveParser.blocking_return
 import geotrellis.raster.ByteCellType
 import geotrellis.proj4.LatLng
+import org.apache.spark.sql.types.{IntegerType, BooleanType}
 import org.apache.spark.sql.functions.{col, udf, explode,collect_list, struct}
 import org.apache.spark.sql.{functions => fn}
+import org.apache.spark.sql.DataFrame
 import java.net.URI
 
 case class Bucket(location_id: Long, geometry: Geometry)
@@ -24,34 +26,78 @@ class LocationMasksSpec extends TestEnvironment {
     spark.read.geojson.load(geom_uri.toString)
   }
 
-  it("turns clips geometry to grid") {
-    val gom = udf{  geom: Geometry => GeomSlicer.sliceGeomByGrid(geom, GridData.blockTileGrid) }
-    val locTiles = locations.
-      withColumn("cell", explode(gom(col("geometry")))).
-      select(col("list_id"), col("location_id"), col("cell._1") as "spatial_key", col("cell._2") as "geometry")//.groupBy("list_id", "spatial_key").pivot("location_id").count()
+  def tileGeomByGrid = udf {  geom: Geometry => Locations.geomByGrid(geom, GridData.blockTileGrid) }
 
-    locTiles.printSchema()
-    // out.show()
+  def locGroups = locations
+    .withColumn("cell", explode(tileGeomByGrid(col("geometry"))))
+    .select(col("list_id"), col("location_id"), col("cell._1") as "spatial_key", col("cell._2") as "geometry")
+    .groupBy("list_id", "spatial_key")
+    .agg(fn.map_from_entries(
+      collect_list(
+        struct(
+          col("location_id"),
+          col("geometry")
+          // rf_rasterize(col("geometry"),col("geometry"), fn.lit(1), 400, 400)
+        )
+      )
+    ) as "geom_cells")
 
+  def locCells = locations
+    .withColumn("cell", explode(tileGeomByGrid(col("geometry"))))
+    .select(col("list_id"), col("location_id"), col("cell._1") as "spatial_key", col("cell._2") as "geometry")
 
-    val locGroups = locTiles.groupBy("list_id", "spatial_key").agg(fn.map_from_entries(collect_list(struct(locTiles("location_id"), locTiles("geometry")))) as "geom_list")
+  ignore("clip geoms by grid") {
     locGroups.printSchema()
     locGroups.show()
+  }
 
-    val udfCheck = udf { (tcl: Tile, tcd: Tile, geoms: Array[Bucket]) =>
-      print(s"$tcl, $tcd, ${geoms.length}")
-      geoms.length
-      // return histograms
-    }
+  ignore("explodes raster pixels") {
+    println("--explodes raster pixels")
+    val rasters: DataFrame = ???///TreeCoverLoss.dataframe(spark).withColumnRenamed("spatial_key", "raster_key")
 
+    val pixels =
+      rasters.select(
+        rf_explode_tiles(
+          rasters("tcd_tile") as "tcd",
+          rasters("tcl_tile") as "tcl"))
+        .withColumn("tcd", col("tcd").cast(IntegerType))
+        .withColumn("tcl", fn.when(col("tcl").isNaN, null).otherwise(col("tcl") + 2000).cast(IntegerType))
+        .where(col("tcl").isNotNull)
+    pixels.printSchema()
+    pixels.show()
+  }
 
-    val rasters = TreeCoverLoss.dataframe(spark)
-    val joined = locGroups.join(rasters, rasters("spatial_key") === locGroups("spatial_key"), "left")
+  ignore("joins clipped geoms with rasters"){
+    val rasters: DataFrame = ???///TreeCoverLoss.dataframe(spark).withColumnRenamed("spatial_key", "raster_key")
+    // val rasters = TreeCoverLoss.dataframe(spark).withColumnRenamed("spatial_key", "raster_key")
+    val locations = locGroups.withColumnRenamed("spatial_key", "location_key")
+
+    val joined = locations.join(rasters, 'location_key === 'raster_key, "left")
       .where(rasters("tcl_tile").isNotNull)
-
     joined.show()
-    // joined.select(rasters("spatial_key"), udfCheck(col("tcl_tile"), col("tcd_tile"), col("geom_list").as[Array[Bucket]])).show()
-    // joined.select(rasters("spatial_key"), udfCheck(col("tcl_tile"), col("tcd_tile"), col("geom_list").as[Array[Bucket]])).show()
+  }
+
+  it("explodes cells"){
+    // val rasters = TreeCoverLoss.dataframe(spark).withColumnRenamed("spatial_key", "raster_key")
+    val rasters: DataFrame = ???///TreeCoverLoss.dataframe(spark).withColumnRenamed("spatial_key", "raster_key")
+    val locations = locCells.withColumnRenamed("spatial_key", "location_key")
+
+    val joined = locations.join(rasters, 'location_key === 'raster_key, "left")
+
+    val pixels = joined
+    .withColumn("mask", rf_rasterize(col("geometry"),col("geometry"), fn.lit(1), 400, 400))
+    .select(
+      locations("list_id"),
+      locations("location_id"),
+      rf_explode_tiles(
+        rf_mask(rasters("tcl_tile"), col("mask")) as "tcl",
+        rf_mask(rasters("tcd_tile"), col("mask")) as "tcd"
+      )
+    )
+
+    // pixels.show()
+
+    info(s"pixel count: ${pixels.count()}")
   }
 
 }

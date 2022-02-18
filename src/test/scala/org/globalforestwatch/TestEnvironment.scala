@@ -11,9 +11,7 @@ import org.scalatest._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.LoggerFactory
-import org.apache.spark.SparkConf
 import org.locationtech.rasterframes._
-import org.locationtech.rasterframes.datasource.raster._
 
 trait TestEnvironment extends AnyFunSpec
   with Matchers with Inspectors with Tolerance with RasterMatchers {
