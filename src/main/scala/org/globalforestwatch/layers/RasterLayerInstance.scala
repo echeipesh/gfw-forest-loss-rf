@@ -1,16 +1,15 @@
 package org.globalforestwatch.layers
 
 import geotrellis.layer._
-import geotrellis.raster._
 import geotrellis.vector._
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.locationtech.rasterframes.{geomLit, rf_geometry, st_intersects}
 import org.locationtech.rasterframes.datasource.raster._
 import org.apache.spark.sql.{functions => F}
-import org.globalforestwatch.ForestChangeDiagnostic.keyForTile
 import org.globalforestwatch.grids._
-import org.globalforestwatch.config.GfwConfig
+import org.globalforestwatch.util.FileUtils
+
+import java.net.URI
 
 case class RasterLayerInstance(
   layer: RasterLayer,
@@ -46,7 +45,11 @@ case class RasterLayerInstance(
   }
 
   def list(aoi: Geometry): List[String] = {
-    grid.rasterFileGrid.mapTransform.keysForGeometry(aoi).toList.map { key => uri(key) }
+    grid.rasterFileGrid.mapTransform.keysForGeometry(aoi).toList
+      .map { key => uri(key) }
+      .filter { uri =>
+        FileUtils.s3PrefixExists(uri)
+      }
   }
 
   def query(aoi: Geometry)(implicit spark: SparkSession): DataFrame = {

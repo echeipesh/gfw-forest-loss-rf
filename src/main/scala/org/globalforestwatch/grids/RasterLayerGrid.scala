@@ -12,7 +12,7 @@ trait RasterLayerGrid extends Serializable  {
   val blockSize: Int
 
   /** this represents the tile layout of 10x10 degrees */
-  def rasterFileGrid: LayoutDefinition = {
+  @transient lazy val rasterFileGrid: LayoutDefinition = {
     val tileLayout = TileLayout(
       layoutCols = (extent.xmin.toInt until extent.xmax.toInt by gridSize).length,
       layoutRows = (extent.ymin.toInt until extent.ymax.toInt by gridSize).length,
@@ -25,7 +25,7 @@ trait RasterLayerGrid extends Serializable  {
   /** Windows inside each tile for distributing the job IO
     * Matched to read GeoTiffs written with tiled segment layout
     */
-  def segmentTileGrid: LayoutDefinition = {
+  @transient lazy val segmentTileGrid: LayoutDefinition = {
     val tileLayout = TileLayout(
       layoutCols = (extent.xmin.toInt until extent.xmax.toInt by gridSize).length * (math
         .round(gridSize / pixelSize)

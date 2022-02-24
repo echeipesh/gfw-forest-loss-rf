@@ -59,7 +59,11 @@ object Locations {
           struct(
             col("location_id"),
             //col("geometry")
-            rf_rasterize(col("geometry"), col("geometry"), fn.lit(1), 400, 400)
+            rf_rasterize(
+              col("geometry"),
+              col("geometry"),
+              fn.lit(1), 400, 400)
+
           )
         )
       ) as "geom_cells")

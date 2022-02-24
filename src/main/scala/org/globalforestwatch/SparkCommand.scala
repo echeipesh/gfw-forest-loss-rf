@@ -7,8 +7,8 @@ trait SparkCommand {
   implicit lazy val spark: SparkSession = {
     val spark = SparkSession.builder().master("local[*]").
       appName(getClass().getSimpleName()).
-      config("spark.default.parallelism", 64).
-      config("spark.sql.shuffle.partitions", 64).
+      config("spark.default.parallelism", 200).
+      config("spark.sql.shuffle.partitions", 200).
       withKryoSerialization.
       getOrCreate().withRasterFrames
       spark.sparkContext.setLogLevel("ERROR")

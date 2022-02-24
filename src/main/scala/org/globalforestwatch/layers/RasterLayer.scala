@@ -7,6 +7,7 @@ import org.globalforestwatch.config.GfwConfig
 import org.locationtech.rasterframes._
 
 
+
 trait RasterLayer {
   def name: String
   def col: Column = f.col(name)
