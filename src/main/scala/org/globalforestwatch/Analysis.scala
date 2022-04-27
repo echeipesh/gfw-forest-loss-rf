@@ -5,6 +5,7 @@ import geotrellis.raster.{Raster, Tile}
 import geotrellis.raster.summary.GridVisitor
 import geotrellis.raster.summary.polygonal.PolygonalSummary
 import geotrellis.vector.Geometry
+import org.apache.log4j.Logger
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.functions.{col, udaf, udf, when}
 import org.globalforestwatch.grids._
@@ -36,6 +37,8 @@ abstract class HistogramAnalysis(override val name: String) extends Analysis(nam
 }
 
 object Analysis {
+  val logger = Logger.getLogger(getClass.getName)
+
   val aggByYear = udaf(LossYearAgg)
   val aggHist = udaf(HistogramAgg)
 
@@ -86,6 +89,7 @@ object Analysis {
     yearTile: Tile,
     criterionTile: Tile
   ): Array[Double] = {
+    logger.warn(s"Rasterizing for ${key}; tile is ${yearTile.cols}×${yearTile.rows}")
     val trans = TenByTen30mGrid.segmentTileGrid.mapTransform
     val extent = trans.keyToExtent(key)
     val year = Raster(yearTile, extent)

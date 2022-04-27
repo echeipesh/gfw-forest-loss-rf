@@ -79,8 +79,6 @@ object ForestChangeDiagnosticRasterized extends SparkCommand  {
     .withColumnRenamed("key", "location_id")
     .withColumnRenamed("value", "geometry")
 
-    flattened.printSchema
-
     val analyses = List(
       Analysis.TreeCoverLossTotalYearly,
       Analysis.TreeCoverLoss90Yearly,
@@ -89,8 +87,6 @@ object ForestChangeDiagnosticRasterized extends SparkCommand  {
     )
 
     val expanded = Analysis.addColumns(flattened, analyses)
-
-    expanded.printSchema
 
     val df = expanded
       .groupBy(col("list_id"), col("location_id"))
