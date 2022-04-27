@@ -5,17 +5,17 @@ import com.monovore.decline._
 import geotrellis.layer.SpatialKey
 import geotrellis.vector._
 import org.apache.spark.sql.functions.{col, explode, udf}
-import org.apache.spark.sql.{Column, SaveMode, SparkSession}
+import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.globalforestwatch.grids.TenByTen30mGrid
 import org.globalforestwatch.layers._
 import org.globalforestwatch.util.Geodesy
 import org.locationtech.rasterframes._
 import org.locationtech.rasterframes.datasource.geojson._
 
-object ForestChangeDiagnostic extends SparkCommand  {
+object ForestChangeDiagnosticRasterized extends SparkCommand  {
 
   val command: Opts[Unit] = Opts.subcommand(
-    name = "fcd",
+    name = "fcdr",
     help = "Compute summary statistics for GFW Pro Forest Change Diagnostic."
   ) {
     (
@@ -40,15 +40,15 @@ object ForestChangeDiagnostic extends SparkCommand  {
       Geodesy.pixelArea(lat, layout.cellSize) / 10000.0
     }
 
-    val locations = spark.read.geojson.load(locationPaths.toList: _*)
+    val rawLocations = spark.read.geojson.load(locationPaths.toList: _*)
 
-    val locationMasks = Locations.locationsByGrid(locations, grid.segmentTileGrid)
+    val keyedLocations = Locations.clipLocationsToGrid(rawLocations, grid.segmentTileGrid)
       .withColumn("area", udfPixelAreaHectares(col("spatial_key")))
       .cache()
 
-    val aoi: Geometry = locations
-      .select(locations("geometry").as[Geometry])
-      .where(locations("location_id") === -1)
+    val aoi: Geometry = rawLocations
+      .select(rawLocations("geometry").as[Geometry])
+      .where(rawLocations("location_id") === -1)
       .first()
 
     val layers = List(
@@ -69,52 +69,36 @@ object ForestChangeDiagnostic extends SparkCommand  {
     )
 
     // I want to be able to give a list of case classes but also refer to them
-    val joined = RasterLayer.joinLayers(locationMasks, grid, aoi, layers)
-
+    val materialized = RasterLayer.joinLayers(keyedLocations, grid, aoi, layers)
 
     // I will now explode
-    val flattened = joined.select(
+    val flattened = materialized.select(
       col("*") ,
       explode(col("geom_cells"))
     )
     .withColumnRenamed("key", "location_id")
-    .withColumnRenamed("value", "mask")
+    .withColumnRenamed("value", "geometry")
 
-    // TODO: when layer.col is a bool layer, we can't mask it because it has no NODATA
-    // 1. convert tile to int
-    // 2. write a new function
-    // 3. write a special case
-    val maskedTileColumns: List[Column] = layers.map { layer =>
-      //rf_mask_by_value(
-      //  layer.col, col("mask"), lit(0)) as layer.name
-      rf_local_multiply(layer.col, col("mask")) as layer.name
-    }
-
-    val pixels = flattened.select(
-      col("list_id"),
-      col("location_id"),
-      col("area"),
-      rf_explode_tiles(maskedTileColumns: _*)).cache
-
-    pixels.printSchema()
-
+    flattened.printSchema
 
     val analyses = List(
-      Analysis.TreeCoverLossTotalYearlyPW,
-      Analysis.TreeCoverLoss90YearlyPW,
-      Analysis.TreeCoverLossPrimaryForestYearlyPW,
-      Analysis.TreeCoverLossPeatYearlyPW
+      Analysis.TreeCoverLossTotalYearly,
+      Analysis.TreeCoverLoss90Yearly,
+      Analysis.TreeCoverLossPrimaryForestYearly,
+      Analysis.TreeCoverLossPeatYearly
     )
 
-    val expanded = Analysis.addColumns(pixels, analyses)
+    val expanded = Analysis.addColumns(flattened, analyses)
+
+    expanded.printSchema
 
     val df = expanded
       .groupBy(col("list_id"), col("location_id"))
       .agg(
-        Analysis.TreeCoverLossTotalYearlyPW.agg,
-        Analysis.TreeCoverLoss90YearlyPW.agg,
-        Analysis.TreeCoverLossPrimaryForestYearlyPW.agg,
-        Analysis.TreeCoverLossPeatYearlyPW.agg
+        Analysis.TreeCoverLossTotalYearly.agg,
+        Analysis.TreeCoverLoss90Yearly.agg,
+        Analysis.TreeCoverLossPrimaryForestYearly.agg,
+        Analysis.TreeCoverLossPeatYearly.agg
       )
 
     df.printSchema()

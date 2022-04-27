@@ -5,7 +5,7 @@ object Main {
   val name = "gfw-raster-stats"
   val header = "Compute summary statistics for GFW data"
   val main = {
-    ForestChangeDiagnostic.command
+    ForestChangeDiagnostic.command orElse ForestChangeDiagnosticRasterized.command
   }
   val command = Command(name, header, true)(main)
 
