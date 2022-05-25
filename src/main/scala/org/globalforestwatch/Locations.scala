@@ -69,4 +69,21 @@ object Locations {
       ) as "geom_cells")
   }
 
+  def clipLocationsToGrid(locations: DataFrame, grid: LayoutDefinition): DataFrame =  {
+    val tileGeomByGrid = udf { geom: Geometry => geomByGrid(geom, grid) }
+
+    locations
+      .withColumn("cell", explode(tileGeomByGrid(locations("geometry"))))
+      .drop("geometry")
+      .select(locations("list_id"), locations("location_id"), col("cell.*"))
+      .groupBy("list_id", "spatial_key")
+      .agg(fn.map_from_entries(
+        collect_list(
+          struct(
+            col("location_id"),
+            col("geometry")
+          )
+        )
+      ) as "geom_cells")
+  }
 }

@@ -6,8 +6,8 @@ scalaVersion := "2.12.12"
 
 libraryDependencies ++= Seq(
   "com.monovore" %% "decline" % "1.2.0",
-  "org.locationtech.rasterframes" %% "rasterframes" % "0.10.1-SNAPSHOT",
-  "org.locationtech.rasterframes" %% "rasterframes-datasource" % "0.10.1-SNAPSHOT",
+  "org.locationtech.rasterframes" %% "rasterframes" % "0.10.1",
+  "org.locationtech.rasterframes" %% "rasterframes-datasource" % "0.10.1",
   "org.scalanlp" %% "breeze" % "0.13.2",
   "org.apache.spark" %% "spark-core" % "3.1.2" % Compile,
   "org.apache.spark" %% "spark-sql" % "3.1.2" % Compile,
